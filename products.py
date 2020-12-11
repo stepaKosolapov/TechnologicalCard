@@ -1,9 +1,9 @@
 groups = {
-    'все': {'productCounter': 1, 'products': {'помидор': ('помидор', 60)}},
+    'все': {'productCounter': 2, 'products': {'помидор': ('помидор', 60), 'говядина': ('говядина', 120)}},
     'другое': {'productCounter': 0, 'products': {}},
-    'овощи': {'productCounter': 0, 'products': {}},
+    'овощи': {'productCounter': 1, 'products': {'помидор': ('помидор', 60)}},
     'фрукты': {'productCounter': 0, 'products': {}},
-    'мясо': {'productCounter': 0, 'products': {}},
+    'мясо': {'productCounter': 1, 'products': {'говядина': ('говядина', 120)}},
     'рыба': {'productCounter': 0, 'products': {}},
     'жидкости': {'productCounter': 0, 'products': {}},
     'молочное': {'productCounter': 0, 'products': {}},

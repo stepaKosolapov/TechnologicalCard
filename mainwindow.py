@@ -1,15 +1,14 @@
 from PyQt5.QtWidgets import (
-                            QWidget, QPushButton,
-                            QComboBox, QLabel, QTableWidget,
-                            QLineEdit,
-                            QHBoxLayout, QVBoxLayout,
-                            QGridLayout, QHeaderView,
-                            QAbstractItemView,
-                            )
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import Qt
+    QWidget, QPushButton,
+    QComboBox, QLabel, QTableWidget,
+    QLineEdit, QTableWidgetItem,
+    QHBoxLayout, QVBoxLayout,
+    QGridLayout, QHeaderView,
+    QAbstractItemView,
+)
+from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtCore import Qt, QSize
 import products
-
 
 colors = ['#8ab82e', '#77d496', '#dec476', '#DBD7D2']
 mainFont = 'Times New Roman'
@@ -18,8 +17,16 @@ postfixCost = currency
 postfixPrice = postfixCost + '/кг'
 postfixWeight = ' г'
 counterProducts = 0
-currentProduct = {'name': '', 'price': 0, 'cost': 0.0, 'weight': 0}
+currentProduct = {'name': '', 'price': 0, 'cost': 0.00, 'weight': 0}
 currentGroup = ''
+currentTotals = {'weight': 0, 'cost': 0.00}
+
+
+class InputError(Exception):
+    """
+        Exception should be raised when an invalid value is entered
+    """
+    pass
 
 
 class MainWindow(QWidget):
@@ -40,7 +47,7 @@ class MainWindow(QWidget):
         self.productTable = QTableWidget()
         self.totalLabel = QLabel()
         self.totalWeight = QLabel()
-        self.totalSum = QLabel()
+        self.totalCost = QLabel()
 
         self.mainGLayout = QGridLayout()
 
@@ -58,6 +65,7 @@ class MainWindow(QWidget):
         self.initWidgets()
         self.show()
         self.updateGroupBox()
+        self.updateTotals()
 
     def updateGroupBox(self):
         """
@@ -110,6 +118,24 @@ class MainWindow(QWidget):
             priceCurrent.setText('0')
             costCurrent.setText('0')
 
+    def updateTotals(self):
+        """
+            Updates the totalWeight and the totalCost using the currentTotals
+        Uses:
+            global dictionary currentTotals
+            global parameters postfixCost, postfixWeight
+        Changes:
+            objects totalWeight, totalCost
+        """
+        global currentTotals, postfixCost, postfixWeight
+        totalCost = self.totalCost
+        totalWeight = self.totalWeight
+
+        cost = currentTotals['cost']
+        weight = currentTotals['weight']
+        totalCost.setText(str(cost) + postfixCost)
+        totalWeight.setText(str(weight) + postfixWeight)
+
     def groupChanged(self):
         """
             Called when the group changes.
@@ -161,19 +187,137 @@ class MainWindow(QWidget):
             global parameter currentProduct['weight'], currentProduct['cost']
         Calls:
             function updateCurrentParameters
-                """
+        """
         global currentProduct
         weightInput = self.weightInput
         try:
             weight = int(weightInput.text())
-        except ValueError:
+            if weight < 0:
+                raise InputError
+        except (InputError, ValueError):
             weight = 0
         currentProduct['weight'] = weight
         price = currentProduct['price']
         currentProduct['cost'] = weight * price / 1000
         self.updateCurrentParameters()
 
+    def addProduct(self):
+        """
+            Called when the addButton pushed
+            Gets parameters of current product and send them to function addToTable
+            Creates a delButton with number=row that deletes this row and send it to function addToTable
+        Uses:
+            global dictionary currentProduct
+        Changes:
+            global dictionary currentTotals
+            global parameter counterProducts
+        Calls:
+            functions updateTotals, addToTable
+        """
+        global currentProduct, counterProducts, currentTotals
+        name = currentProduct['name']
+        price = currentProduct['price']
+        cost = currentProduct['cost']
+        weight = currentProduct['weight']
+        try:
+            if name == '' or weight == 0:
+                raise InputError('Can\'t add')
+
+            currentTotals['cost'] = round(currentTotals['cost'] + cost, 2)
+            currentTotals['weight'] += weight
+            self.updateTotals()
+
+            counterProducts += 1
+            print(name + ' need to add')
+            row = counterProducts - 1
+
+            delButton = QPushButton()
+            delButton.setStyleSheet('background-color: #e03f3f;')
+            delButton.setIcon(QIcon('images/delete_icon.png'))
+            delButton.setIconSize(QSize(20, 20))
+            delButton.number = row
+            delButton.clicked.connect(self.deleteProduct)
+
+            self.addToTable(row, name, weight, price, cost, delButton)
+        except InputError as e:
+            print(e)
+
+    def addToTable(self, row: int, name: str, weight: int, price: int, cost: float, delButton: QPushButton):
+        """
+            Adds the current product to the productTable
+        Uses:
+            global dictionary currentProduct
+            global parameters postfixWeight, postfixPrice, postfixCost, mainFont
+        Changes:
+            object productTable
+        :param row: row number for adding the product
+        :param name: name of product
+        :param weight: weight of product
+        :param price: price of product
+        :param cost: cost of product
+        :param delButton: object created by addProduct
+        """
+        global postfixWeight, postfixPrice, postfixCost, mainFont
+        productTable = self.productTable
+        name = str(name)
+        weight = str(weight) + postfixWeight
+        price = str(price) + postfixPrice
+        cost = str(cost) + postfixCost
+
+        productTable.setRowCount(row + 1)
+
+        font = QFont(mainFont)
+        font.setPointSize(14)
+
+        item = QTableWidgetItem(name)
+        item.setFont(font)
+        productTable.setItem(row, 0, item)
+
+        item = QTableWidgetItem(weight)
+        item.setFont(font)
+        productTable.setItem(row, 1, item)
+
+        item = QTableWidgetItem(price)
+        item.setFont(font)
+        productTable.setItem(row, 2, item)
+
+        item = QTableWidgetItem(cost)
+        item.setFont(font)
+        productTable.setItem(row, 3, item)
+
+        productTable.setCellWidget(row, 4, delButton)
+
+    def deleteProduct(self):
+        """
+            Called when one of the delButtons pushed
+            Deletes row of the productTable with number of the delButton
+        Changes:
+            global parameter counterProducts
+            global dictionary currentTotals
+            objects productTable, totalWeight, totalCost
+        Calls:
+            function updateTotals
+        """
+        global counterProducts, currentTotals
+        productTable = self.productTable
+        row = self.sender().number
+
+        weight = int(productTable.item(row, 1).text().split()[0])
+        cost = round(float(productTable.item(row, 3).text().split()[0]), 2)
+        currentTotals['weight'] -= weight
+        currentTotals['cost'] = round(currentTotals['cost'] - cost, 2)
+        self.updateTotals()
+
+        productTable.removeRow(row)
+        counterProducts -= 1
+        if row != counterProducts:
+            for r in range(row, counterProducts):
+                productTable.cellWidget(r, 4).number -= 1
+
     def layoutWidgets(self):
+        """
+            Distribute all of the widgets on the layout
+        """
         mainGLayout = self.mainGLayout
         mainGLayout.addLayout(self.currentParametersHLayout, 1, 0, 2, 20)
         mainGLayout.addLayout(self.productTableVLayout, 4, 0, 11, 20)
@@ -193,7 +337,7 @@ class MainWindow(QWidget):
         productSelectingVLayout.addWidget(self.addButton)
 
         editButtonVLayout = self.editButtonVLayout
-        editButtonVLayout.addSpacing(46)
+        editButtonVLayout.addSpacing(53)
         editButtonVLayout.addWidget(self.editButton)
         editButtonVLayout.addSpacing(0)
 
@@ -224,12 +368,15 @@ class MainWindow(QWidget):
         totalHLayout = self.totalHLayout
         totalHLayout.addWidget(self.totalLabel)
         totalHLayout.addWidget(self.totalWeight)
-        totalHLayout.addWidget(self.totalSum)
+        totalHLayout.addWidget(self.totalCost)
         totalHLayout.setSpacing(0)
 
         self.setLayout(mainGLayout)
 
     def initWidgets(self):
+        """
+            Sets parameters for all widgets
+        """
         font = QFont(mainFont)
         font.setBold(False)
         color0 = colors[0]
@@ -240,11 +387,12 @@ class MainWindow(QWidget):
         self.setFixedSize(542, 600)
         self.setStyleSheet('background-color: {0};'.format(color1))
         self.setWindowTitle('Технологическая карта')
+        self.setWindowIcon(QIcon('images/tomato_icon.png'))
 
         # comboBox for selecting a product group
         groupBox = self.groupBox
         font.setBold(False)
-        font.setPointSize(15)
+        font.setPointSize(14)
         groupBox.setFont(font)
         groupBox.setObjectName('groupBox')
         groupBox.setStyleSheet('background-color: {0}; border: 2px solid black; border-radius: 3;'.format(color3))
@@ -264,11 +412,12 @@ class MainWindow(QWidget):
         # comboBox for product selection
         productBox = self.productBox
         font.setBold(False)
-        font.setPointSize(15)
+        font.setPointSize(14)
         productBox.setFont(font)
         productBox.setObjectName('productBox')
         productBox.setStyleSheet('background-color: {0}; border: 2px solid black; border-radius: 3;'.format(color3))
         productBox.setFixedSize(175, 20)
+        productBox.setPlaceholderText(' ')
         productBox.currentIndexChanged.connect(self.productChanged)
 
         # label over the productBox
@@ -287,6 +436,8 @@ class MainWindow(QWidget):
         font.setPointSize(15)
         editButton.setFont(font)
         editButton.setObjectName('editButton')
+        editButton.setIcon(QIcon('images/edit_icon.png'))
+        editButton.setIconSize(QSize(13, 13))
         editButton.setStyleSheet('background-color: ' + color2 + ';')
         editButton.setFixedSize(20, 20)
 
@@ -361,10 +512,11 @@ class MainWindow(QWidget):
         addButton.setStyleSheet('background-color: ' + color0 + ';')
         addButton.setText('добавить')
         addButton.setFixedSize(120, 30)
+        addButton.clicked.connect(self.addProduct)
 
         # table of added products
         productTable = self.productTable
-        productTable.setFixedHeight(350)
+        productTable.setFixedHeight(360)
         font.setBold(False)
         font.setPointSize(15)
         productTable.setFont(font)
@@ -410,13 +562,13 @@ class MainWindow(QWidget):
         totalWeight.setText('')
         totalWeight.setStyleSheet('background-color: {0}; border: 1px solid black;'.format(color0))
 
-        # total weight of all products
-        totalSum = self.totalSum
-        totalSum.setFixedSize(175, 40)
+        # total cost of all products
+        totalCost = self.totalCost
+        totalCost.setFixedSize(175, 40)
         font.setBold(False)
-        totalSum.setObjectName('totalSum')
+        totalCost.setObjectName('totalCost')
         font.setPointSize(15)
-        totalSum.setFont(font)
-        totalSum.setAlignment(Qt.AlignCenter)
-        totalSum.setText('')
-        totalSum.setStyleSheet('background-color: {0}; border: 1px solid black;'.format(color0))
+        totalCost.setFont(font)
+        totalCost.setAlignment(Qt.AlignCenter)
+        totalCost.setText('')
+        totalCost.setStyleSheet('background-color: {0}; border: 1px solid black;'.format(color0))
