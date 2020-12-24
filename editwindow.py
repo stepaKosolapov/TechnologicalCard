@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QSize
 import mainwindow
-import products
+import controller
 import config
 from config import InputError
 
@@ -113,19 +113,19 @@ class EditWindow(QWidget):
 
     def updateGroupBox(self):
         """
-            Updates the groupBox using the imported dictionary product.groups
+            Updates the groupBox using the imported module controller
         Uses:
-            imported dictionary product.groups
+            imported module controller
         """
         self.groupBox.clear()
-        for group in products.groups:
+        for group in controller.getGroups():
             self.groupBox.addItem(group)
 
     def updateProductTable(self):
         """
-            Clears the product table and adds all products from current group using imported dictionary products.group
+            Clears the product table and adds all products from current group using imported module controller
         Uses:
-            imported dictionary products.group
+            imported module controller
         Changes:
             parameter counterProducts
             object productTable
@@ -134,9 +134,9 @@ class EditWindow(QWidget):
         """
         self.counterProducts = 0
         self.productTable.setRowCount(0)
-        for product in products.groups[self.currentGroup]['products']:
-            name = products.groups[self.currentGroup]['products'][product][0]
-            price = products.groups[self.currentGroup]['products'][product][1]
+        for product in controller.getProducts(self.currentGroup):
+            name = controller.getProducts(self.currentGroup)[product][0]
+            price = controller.getProducts(self.currentGroup)[product][1]
             self.addProduct(name, price, True)
 
     def addProduct(self, name='', price=0, from_code=False):
@@ -147,11 +147,11 @@ class EditWindow(QWidget):
             When called by the updateProductTable function:
                 gets parameters and send them to the addToTable function
             Creates a delButton with number=row that deletes this row and send it to the addToTable function
-            Adds only if the product is not in products.groups
+            Adds only if the product is not in products.csv
             Updates productBox in mainwindow
         Uses:
             dictionary enteredProduct
-            imported dictionary products.groups
+            imported module controller
         Changes:
             parameter counterProducts
         Calls:
@@ -160,20 +160,18 @@ class EditWindow(QWidget):
         """
         if not from_code:
             name = self.enteredProduct['name']
-            if name.lower() in products.groups['все']['products']:
+            if name.lower() in controller.getProducts():
                 name = ''
             price = self.enteredProduct['price']
         try:
             if name == '' or price == 0:
-                print(name, price, name.lower() in products.groups['все']['products'])
                 raise InputError('Can\'t add')
 
             self.counterProducts += 1
-            print(name + ' needs to be added in ' + self.currentGroup + ' price =', price)
             row = self.counterProducts - 1
 
             if not from_code:
-                products.newProduct(name, price, self.currentGroup)
+                controller.newProduct(name, price, self.currentGroup)
 
             delButton = QPushButton()
             delButton.setStyleSheet('background-color: #e03f3f;')
@@ -223,29 +221,32 @@ class EditWindow(QWidget):
         self.productTable.setItem(row, 1, item)
 
         self.productTable.setCellWidget(row, 2, delButton)
-        print('{0} from {1} was added to table in {2} row'.format(name, self.currentGroup, row))
 
     def deleteProduct(self):
         """
             Called when one of the delButtons pushed
             Deletes a row in the productTable with the delButton number
-            Deletes the product from the imported dictionary products.group
+            Deletes the product from the products.csv using imported module controller
         Uses:
+            imported module controller
             parameter currentGroup
         Changes:
             parameter counterProducts
             objects productTable
-            imported dictionary products.group
+            products.csv
         """
         row = self.sender().number
 
         name = self.productTable.item(row, 0).text()
 
         if self.currentGroup == 'все':
-            products.removeProduct(name)
+            controller.removeProduct(name, 'все')
+            searchedGroup = controller.searchProductGroup(name)
+            if searchedGroup is not None:
+                controller.removeProduct(name, searchedGroup)
         else:
-            products.removeProduct(name, self.currentGroup)
-            products.removeProduct(name, 'все')
+            controller.removeProduct(name, self.currentGroup)
+            controller.removeProduct(name, 'все')
 
         mainWindowCurrentGroup = mainwindow.windowObject.currentGroup
         if mainWindowCurrentGroup == 'все' or mainWindowCurrentGroup == self.currentGroup:

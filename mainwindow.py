@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QSize
 import editwindow
-import products
+import controller
 from config import InputError
 import config
 
@@ -83,6 +83,7 @@ class MainWindow(QWidget):
 
     def closeEvent(self, QCloseEvent):
         editwindow.windowObject.close()
+        controller.save()
         self.close()
 
     def updateGroupBox(self):
@@ -92,12 +93,12 @@ class MainWindow(QWidget):
             imported dictionary product.groups
         """
         self.groupBox.clear()
-        for group in products.groups:
+        for group in controller.getGroups():
             self.groupBox.addItem(group)
 
     def updateProductBox(self):
         """
-            Updates the productBox using the imported dictionary products.groups
+            Updates the productBox using the imported controller
         Uses:
             parameter currentGroup
             imported dictionary product.groups
@@ -105,8 +106,8 @@ class MainWindow(QWidget):
              object productBox
         """
         self.productBox.clear()
-        for product in products.groups[self.currentGroup]['products']:
-            productName = products.groups[self.currentGroup]['products'][product][0]
+        for product in controller.getProducts(self.currentGroup):
+            productName = controller.getProducts(self.currentGroup)[product][0]
             self.productBox.addItem(productName)
 
     def updateCurrentParameters(self):
@@ -165,10 +166,10 @@ class MainWindow(QWidget):
         """
             Called when the product changes
             Updates the currentProduct['name'] parameter using the productBox
-            Updates the currentProduct['price'] parameter using the imported dictionary product.groups
+            Updates the currentProduct['price'] parameter using the imported module controller
         Uses:
             object productBox
-            imported dictionary product.groups
+            imported module controller
         Changes:
             parameters currentProduct['name'], currentProduct['price']
         Calls:
@@ -177,7 +178,7 @@ class MainWindow(QWidget):
         name = self.productBox.currentText()
         self.currentProduct['name'] = name
         try:
-            self.currentProduct['price'] = products.groups[self.currentGroup]['products'][name.lower()][1]
+            self.currentProduct['price'] = controller.getProducts(self.currentGroup)[name.lower()][1]
         except KeyError:
             self.currentProduct['price'] = 0
         self.weightChanged()
@@ -209,6 +210,19 @@ class MainWindow(QWidget):
         print(weight, price, self.currentProduct['cost'])
         self.updateCurrentParameters()
 
+    def addExistingProduct(self, row):
+        self.currentTotals['cost'] = round(self.currentTotals['cost'] + self.currentProduct['cost'], 2)
+        self.currentTotals['weight'] += self.currentProduct['weight']
+        self.updateTotals()
+        weight = int(self.productTable.item(row, 1).text().split()[0]) + self.currentProduct['weight']
+        cost = float(self.productTable.item(row, 3).text().split()[0]) + self.currentProduct['cost']
+        cost = round(cost, 2)
+
+        item = QTableWidgetItem(str(weight) + postfixWeight)
+        self.productTable.setItem(row, 1, item)
+        item = QTableWidgetItem(str(cost) + postfixCost)
+        self.productTable.setItem(row, 3, item)
+
     def addProduct(self):
         """
             Called when the addButton pushed
@@ -220,12 +234,19 @@ class MainWindow(QWidget):
             dictionary currentTotals
             parameter counterProducts
         Calls:
-            functions updateTotals, addToTable
+            functions updateTotals, addToTable, addExistingProduct
         """
         name = self.currentProduct['name']
         price = self.currentProduct['price']
         cost = self.currentProduct['cost']
         weight = self.currentProduct['weight']
+
+        addedProducts = [self.productTable.item(row, 0).text() for row in range(self.productTable.rowCount())]
+        for row, item in enumerate(addedProducts):
+            print(name, row, item)
+            if name == item:
+                self.addExistingProduct(row)
+                return
         try:
             if name == '' or weight == 0:
                 raise InputError('Can\'t add')
