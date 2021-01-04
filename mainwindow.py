@@ -35,12 +35,13 @@ def _setConfigs():
 
 
 class MainWindow(QWidget):
-    def __init__(self):
+    def __init__(self):  # TODO: Add the dishButton that will be show the dishWindow!
         global windowObject
         windowObject = self
         super().__init__()
         _setConfigs()
 
+        self.productList = []
         self.counterProducts = 0
         self.currentProduct = {'name': '', 'price': 0, 'cost': 0.00, 'weight': 0}
         self.currentGroup = ''
@@ -77,7 +78,6 @@ class MainWindow(QWidget):
 
         self.layoutWidgets()
         self.initWidgets()
-        self.show()
         self.updateGroupBox()
         self.updateTotals()
 
@@ -210,7 +210,33 @@ class MainWindow(QWidget):
         print(weight, price, self.currentProduct['cost'])
         self.updateCurrentParameters()
 
+    def loadTableFromController(self):
+        """
+            Loads the productTable using the controller
+        Uses:
+            imported module controller
+            object addButton
+        Changes:
+            object productTable, groupBox, productBox, weightInput
+        """
+        if self.counterProducts > 0:
+            for row in range(self.counterProducts):
+                self.productTable.cellWidget(0, 4).clicked.emit()
+        for product in controller.getCurrentDishProducts():
+            name = controller.getProducts()[product[0]][0]
+            weight = product[1]
+            self.groupBox.setCurrentText('Все')
+            self.productBox.setCurrentText(name)
+            self.weightInput.setText(str(weight))
+            self.addButton.clicked.emit()
+
     def addExistingProduct(self, row):
+        """
+            Does the same thing as the "add product" function, but for for an already added product.
+            Adds the weight and cost of the product to the one already in the table.
+        :param row: index of the line required to add an existing product
+        """
+
         self.currentTotals['cost'] = round(self.currentTotals['cost'] + self.currentProduct['cost'], 2)
         self.currentTotals['weight'] += self.currentProduct['weight']
         self.updateTotals()
@@ -241,8 +267,7 @@ class MainWindow(QWidget):
         cost = self.currentProduct['cost']
         weight = self.currentProduct['weight']
 
-        addedProducts = [self.productTable.item(row, 0).text() for row in range(self.productTable.rowCount())]
-        for row, item in enumerate(addedProducts):
+        for row, item in enumerate(self.productList):
             print(name, row, item)
             if name == item:
                 self.addExistingProduct(row)
@@ -256,6 +281,7 @@ class MainWindow(QWidget):
             self.updateTotals()
 
             self.counterProducts += 1
+            self.productList.append(name)
             print(name + ' need to add')
             row = self.counterProducts - 1
 
@@ -340,7 +366,7 @@ class MainWindow(QWidget):
 
     def layoutWidgets(self):
         """
-            Distribute all of the widgets on the layout
+            Distributes all of the widgets on the layout
         """
         mainGLayout = self.mainGLayout
         mainGLayout.addLayout(self.currentParametersHLayout, 1, 0, 2, 20)
@@ -600,3 +626,19 @@ class MainWindow(QWidget):
         self.totalCost.setAlignment(Qt.AlignCenter)
         self.totalCost.setText('')
         self.totalCost.setStyleSheet('background-color: {0}; border: 1px solid black;'.format(color0))
+
+
+if __name__ == '__main__':
+    import sys
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication(sys.argv)
+    controller.load()
+    config.mainFont = 'Century Gothic'
+    editWindow = editwindow.EditWindow()
+    window = MainWindow()
+    window.show()
+    controller.loadDish('саЛат')
+    window.loadTableFromController()
+    controller.loadDish('суп')
+    window.loadTableFromController()
+    sys.exit(app.exec_())

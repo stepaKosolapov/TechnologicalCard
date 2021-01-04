@@ -17,7 +17,6 @@ windowObject = ''
 
 colors = []
 mainFont = ''
-currency = ''
 postfixPrice = ''
 
 
@@ -85,12 +84,7 @@ class EditWindow(QWidget):
         Changes:
             parameter enteredProduct['name']
         """
-        try:
-            name = self.nameInput.text()
-            if name == '':
-                raise InputError
-        except InputError:
-            name = ''
+        name = self.nameInput.text()
         self.enteredProduct['name'] = name
 
     def priceChanged(self):
@@ -183,7 +177,7 @@ class EditWindow(QWidget):
             self.addToTable(row, name, price, delButton)
 
             if not from_code:
-                self.priceInput.setText('0')
+                self.priceInput.setText('')
                 self.nameInput.setText('')
                 mainWindowCurrentGroup = mainwindow.windowObject.currentGroup
                 if mainWindowCurrentGroup == 'все' or mainWindowCurrentGroup == self.currentGroup:
@@ -260,7 +254,7 @@ class EditWindow(QWidget):
 
     def layoutWidgets(self):
         """
-            Distribute all of the widgets on the layout
+            Distributes all of the widgets on the layout
         """
         mainGLayout = self.mainGLayout
         mainGLayout.addLayout(self.inputParametersHLayout, 1, 0, 2, 10)
