@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt, QSize
 import editwindow
+import dishwindow
 import controller
 from config import InputError
 import config
@@ -35,13 +36,14 @@ def _setConfigs():
 
 
 class MainWindow(QWidget):
-    def __init__(self):  # TODO: Add the dishButton that will be show the dishWindow!
+    def __init__(self):
         global windowObject
         windowObject = self
+        print(windowObject)
         super().__init__()
         _setConfigs()
 
-        self.productList = []
+        self.productList = {}
         self.counterProducts = 0
         self.currentProduct = {'name': '', 'price': 0, 'cost': 0.00, 'weight': 0}
         self.currentGroup = ''
@@ -59,6 +61,7 @@ class MainWindow(QWidget):
         self.costCurrent = QLabel()
         self.costLabel = QLabel()
         self.addButton = QPushButton()
+        self.dishButton = QPushButton()
         self.productTable = QTableWidget()
         self.totalLabel = QLabel()
         self.totalWeight = QLabel()
@@ -85,6 +88,14 @@ class MainWindow(QWidget):
         editwindow.windowObject.close()
         controller.save()
         self.close()
+
+    def resetToDefaults(self):
+        self.groupBox.setCurrentText('Все')
+        self.productBox.setCurrentText('')
+        self.weightInput.setText('')
+        if self.counterProducts > 0:
+            for row in range(self.counterProducts):
+                self.productTable.cellWidget(0, 4).clicked.emit()
 
     def updateGroupBox(self):
         """
@@ -148,6 +159,14 @@ class MainWindow(QWidget):
         self.totalCost.setText(str(cost) + postfixCost)
         self.totalWeight.setText(str(weight) + postfixWeight)
 
+    def dishButtonClicked(self):
+        """
+            Called when dishButton is clicked
+            Hides the mainWindow and shows the dishWindow
+        """
+        dishwindow.windowObject.show()
+        self.hide()
+
     def groupChanged(self):
         """
             Called when the group changes or called by the editwindow.EditWindow.addProduct function
@@ -207,7 +226,6 @@ class MainWindow(QWidget):
         self.currentProduct['weight'] = weight
         price = self.currentProduct['price']
         self.currentProduct['cost'] = round(weight * price / 1000, 2)
-        print(weight, price, self.currentProduct['cost'])
         self.updateCurrentParameters()
 
     def loadTableFromController(self):
@@ -225,7 +243,7 @@ class MainWindow(QWidget):
         for product in controller.getCurrentDishProducts():
             name = controller.getProducts()[product[0]][0]
             weight = product[1]
-            self.groupBox.setCurrentText('Все')
+            self.groupBox.setCurrentIndex(0)
             self.productBox.setCurrentText(name)
             self.weightInput.setText(str(weight))
             self.addButton.clicked.emit()
@@ -240,6 +258,9 @@ class MainWindow(QWidget):
         self.currentTotals['cost'] = round(self.currentTotals['cost'] + self.currentProduct['cost'], 2)
         self.currentTotals['weight'] += self.currentProduct['weight']
         self.updateTotals()
+
+        self.productList[self.productTable.item(row, 0).text().lower()] += self.currentProduct['weight']
+
         weight = int(self.productTable.item(row, 1).text().split()[0]) + self.currentProduct['weight']
         cost = float(self.productTable.item(row, 3).text().split()[0]) + self.currentProduct['cost']
         cost = round(cost, 2)
@@ -267,9 +288,9 @@ class MainWindow(QWidget):
         cost = self.currentProduct['cost']
         weight = self.currentProduct['weight']
 
-        for row, item in enumerate(self.productList):
-            print(name, row, item)
-            if name == item:
+        addedProducts = [self.productTable.item(row, 0).text().lower() for row in range(self.productTable.rowCount())]
+        for row, item in enumerate(addedProducts):
+            if name.lower() == item:
                 self.addExistingProduct(row)
                 return
         try:
@@ -281,7 +302,7 @@ class MainWindow(QWidget):
             self.updateTotals()
 
             self.counterProducts += 1
-            self.productList.append(name)
+            self.productList[name.lower()] = weight
             print(name + ' need to add')
             row = self.counterProducts - 1
 
@@ -293,6 +314,7 @@ class MainWindow(QWidget):
             delButton.clicked.connect(self.deleteProduct)
 
             self.addToTable(row, name, weight, price, cost, delButton)
+            print(self.productList)
         except InputError as e:
             print(e)
 
@@ -358,11 +380,13 @@ class MainWindow(QWidget):
         self.currentTotals['cost'] = round(self.currentTotals['cost'] - cost, 2)
         self.updateTotals()
 
+        del self.productList[self.productTable.item(row, 0).text().lower()]
         self.productTable.removeRow(row)
         self.counterProducts -= 1
         if row != self.counterProducts:
             for r in range(row, self.counterProducts):
                 self.productTable.cellWidget(r, 4).number -= 1
+        print(self.productList)
 
     def layoutWidgets(self):
         """
@@ -409,7 +433,8 @@ class MainWindow(QWidget):
         costCurrentVLayout.addSpacing(30)
         costCurrentVLayout.addWidget(self.costLabel)
         costCurrentVLayout.addWidget(self.costCurrent)
-        costCurrentVLayout.addSpacing(50)
+        costCurrentVLayout.addSpacing(12)
+        costCurrentVLayout.addWidget(self.dishButton)
 
         productTableVLayout = self.productTableVLayout
         productTableVLayout.setSpacing(0)
@@ -438,8 +463,8 @@ class MainWindow(QWidget):
 
         self.setFixedSize(612, 600)
         self.setStyleSheet('background-color: {0};'.format(color1))
-        self.setWindowTitle('Технологическая карта')
-        self.setWindowIcon(QIcon('images/tomato_icon.png'))
+        self.setWindowTitle('Список продуктов')
+        self.setWindowIcon(QIcon('images/products_icon.png'))
 
         # comboBox for selecting a product group
         font.setBold(False)
@@ -571,6 +596,16 @@ class MainWindow(QWidget):
         self.addButton.setFixedSize(120, 30)
         self.addButton.clicked.connect(self.addProduct)
 
+        # button to open the dishWindow
+        font.setBold(False)
+        font.setPointSize(11)
+        self.dishButton.setFont(font)
+        self.dishButton.setObjectName('dishButton')
+        self.dishButton.setStyleSheet('background-color: ' + color0 + ';')
+        self.dishButton.setText('далее')
+        self.dishButton.setFixedSize(120, 30)
+        self.dishButton.clicked.connect(self.dishButtonClicked)
+
         # table of added products
         self.productTable.setFixedHeight(370)
         self.productTable.setFixedWidth(585)
@@ -636,9 +671,7 @@ if __name__ == '__main__':
     config.mainFont = 'Century Gothic'
     editWindow = editwindow.EditWindow()
     window = MainWindow()
+    print(type(windowObject))
+    print(type(editWindow))
     window.show()
-    controller.loadDish('саЛат')
-    window.loadTableFromController()
-    controller.loadDish('суп')
-    window.loadTableFromController()
     sys.exit(app.exec_())

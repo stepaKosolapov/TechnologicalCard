@@ -331,7 +331,7 @@ class EditWindow(QWidget):
         self.nameInput.setFixedHeight(22)
         self.nameInput.setPlaceholderText('имя')
         self.nameInput.setAlignment(Qt.AlignCenter)
-        self.nameInput.setMaxLength(15)
+        self.nameInput.setMaxLength(30)
         self.nameInput.textChanged.connect(self.nameChanged)
 
         # label over the nameLabel

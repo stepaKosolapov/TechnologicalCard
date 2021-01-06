@@ -32,8 +32,8 @@ class SelectWindow(QWidget):
         super().__init__()
         _setConfigs()
 
-        self.newDishName = 'Новое блюдо'
-        self.selectedDishName = 'Существующее блюдо'
+        self.newDishName = ''
+        self.selectedDishName = ''
 
         self.selectDishBox = QComboBox()
         self.selectDishLabel = QLabel()
@@ -52,8 +52,14 @@ class SelectWindow(QWidget):
         self.layoutWidgets()
         self.initWidgets()
 
+    def closeEvent(self, QCloseEvent):
+        controller.save()
+        self.close()
+
     def showEvent(self, QShowEvent):
         self.show()
+        self.nameInput.setText('')
+        controller.resetDishParameters()
         self.updateSelectDishBox()
 
     def selectingDishChanged(self):
@@ -87,7 +93,11 @@ class SelectWindow(QWidget):
             imported module controller
             parameter selectedDishName
         """
+        if self.selectedDishName == '':
+            return
         controller.removeDish(self.selectedDishName)
+        self.updateSelectDishBox()
+        controller.save()
 
     def newButtonClicked(self):
         """
@@ -99,6 +109,7 @@ class SelectWindow(QWidget):
         """
         controller.resetDishParameters()
         controller.setCurrentName(self.newDishName)
+        mainwindow.windowObject.resetToDefaults()
         mainwindow.windowObject.show()
         self.hide()
 
@@ -111,9 +122,10 @@ class SelectWindow(QWidget):
             imported module controller.py
             parameter selectedDishName
         """
+        if self.selectedDishName == '':
+            return
         controller.loadDish(self.selectedDishName)
         mainwindow.windowObject.loadTableFromController()
-        dishwindow.windowObject.loadParameters()
         dishwindow.windowObject.show()
         self.hide()
 
@@ -169,7 +181,7 @@ class SelectWindow(QWidget):
         self.setFixedSize(600, 150)
         self.setStyleSheet('background-color: {0};'.format(color1))
         self.setWindowTitle('Выбор блюда')
-        self.setWindowIcon(QIcon('images/edit_icon.png'))
+        self.setWindowIcon(QIcon('images/select_icon.png'))
 
         # comboBox for selecting the dish
         font.setBold(False)
@@ -231,7 +243,7 @@ class SelectWindow(QWidget):
         font.setPointSize(11)
         self.delButton.setFont(font)
         self.delButton.setObjectName('delButton')
-        self.delButton.setStyleSheet('background-color: ' + 'red' + ';')
+        self.delButton.setStyleSheet('background-color: ' + '#e03f3f' + ';')
         self.delButton.setText('удалить')
         self.delButton.setMinimumWidth(120)
         self.delButton.clicked.connect(self.delButtonClicked)

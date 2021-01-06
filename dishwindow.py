@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtCore import Qt
 import mainwindow
+import selectwindow
 import controller
 import config
 
@@ -40,6 +41,7 @@ class DishWindow(QWidget):
         super().__init__()
         _setConfigs()
 
+        self.dishName = ''
         self.recipe = ''
         self.productList = []
         self.markup = 100
@@ -51,7 +53,7 @@ class DishWindow(QWidget):
         self.saveButton = QPushButton()
         self.changeButton = QPushButton()
         self.backButton = QPushButton()
-        self.dishNameLabel = QLabel()
+        self.dishNameInput = QLineEdit()
         self.recipeLabel = QLabel()
         self.recipeField = QTextEdit()
         self.productTable = QTableWidget()
@@ -71,15 +73,23 @@ class DishWindow(QWidget):
         self.layoutWidgets()
         self.initWidgets()
 
+    def closeEvent(self, QCloseEvent):
+        controller.save()
+        self.close()
+
+    def showEvent(self, QShowEvent):
+        self.show()
+        self.loadParameters()
+
     def _loadFromController(self):
         """
-            Updates the dishNameLabel, markupField and recipeField using the controller
+            Updates the dishNameInput, markupField and recipeField using the controller
         Uses:
             imported module controller.py
         Changes:
-            objects markupField, recipeField, dishNameLabel
+            objects markupField, recipeField, dishNameInput
         """
-        self.dishNameLabel.setText(controller.getCurrentDishName())
+        self.dishNameInput.setText(controller.getCurrentDishName())
         self.markupField.setText(str(controller.getCurrentDishMarkup()))
         self.recipeField.setText(controller.getCurrentDishRecipe())
 
@@ -97,19 +107,49 @@ class DishWindow(QWidget):
         self.productTable.setRowCount(0)
         self.totalValue = mainwindow.windowObject.currentTotals['cost']
         self.totalWeight = mainwindow.windowObject.currentTotals['weight']
-        self.productList = mainwindow.windowObject.productList
+
+        self.productList = []
+        mainList = mainwindow.windowObject.productList
+        for name in mainList:
+            self.productList.append((name, mainList[name]))
         self.productTable.setRowCount(mainTable.rowCount())
+
         for row in range(mainTable.rowCount()):
             name = mainTable.item(row, 0).text()
             weight = int(mainTable.item(row, 1).text().split()[0])
             cost = float(mainTable.item(row, 3).text().split()[0])
             self.addToTable(row, name, weight, cost)
 
-    def saveButtonClicked(self):  # TODO: This func should say the controller.py to save the dish to CSV.
-        pass
+    def saveButtonClicked(self):
+        controller.removeDish(controller.getCurrentDishName())
+        if self.dishName == '':
+            self.dishName = 'newDish'
+        controller.setCurrentName(self.dishName)
+        controller.setCurrentDishMarkup(self.markup)
+        controller.setCurrentDishRecipe(self.recipe)
+        controller.setCurrentDishProducts(self.productList)
+        controller.saveCurrentDish()
 
-    def changeButtonClicked(self):  # TODO: This func should back user to selectwindow.py.
-        pass
+    def changeButtonClicked(self):
+        selectwindow.windowObject.show()
+        self.hide()
+
+    def backButtonClicked(self):
+        mainwindow.windowObject.show()
+        self.hide()
+
+    def dishNameChanged(self):
+        """
+            Called when the dishNameInput's text changes
+            Updates the dishName with dishNameInput
+        Uses:
+            object dishNameInput
+        Changes:
+            parameter dishName
+        """
+        self.dishName = self.dishNameInput.text()
+        if self.dishName == '':
+            self.dishName = 'new dish'
 
     def recipeChanged(self):
         """
@@ -136,6 +176,8 @@ class DishWindow(QWidget):
             self.markup = markup_
             self.updateTotals()
         except ValueError as e:
+            self.markup = 0
+            self.updateTotals()
             print(e)
 
     def updateTotals(self):
@@ -209,7 +251,7 @@ class DishWindow(QWidget):
 
         dishSelectingVLayout = self.dishSelectingVLayout
         dishSelectingVLayout.setSpacing(10)
-        dishSelectingVLayout.addWidget(self.dishNameLabel)
+        dishSelectingVLayout.addWidget(self.dishNameInput)
         dishSelectingVLayout.addWidget(self.saveButton)
         dishSelectingVLayout.addWidget(self.changeButton)
 
@@ -246,8 +288,8 @@ class DishWindow(QWidget):
 
         self.setFixedSize(912, 600)
         self.setStyleSheet('background-color: {0};'.format(color1))
-        self.setWindowTitle('Технологическая карта')
-        self.setWindowIcon(QIcon('images/tomato_icon.png'))
+        self.setWindowTitle('Блюдо')
+        self.setWindowIcon(QIcon('images/dish_icon.png'))
 
         # field for input the markup
         font.setBold(False)
@@ -276,11 +318,11 @@ class DishWindow(QWidget):
         # name of the dish
         font.setBold(True)
         font.setPointSize(12)
-        self.dishNameLabel.setFont(font)
-        self.dishNameLabel.setObjectName('dishNameLabel')
-        self.dishNameLabel.setText('dishName')
-        self.dishNameLabel.setAlignment(Qt.AlignCenter)
-        self.dishNameLabel.setFixedSize(140, 22)
+        self.dishNameInput.setFont(font)
+        self.dishNameInput.setObjectName('dishNameInput')
+        self.dishNameInput.setAlignment(Qt.AlignCenter)
+        self.dishNameInput.setFixedSize(140, 22)
+        self.dishNameInput.textChanged.connect(self.dishNameChanged)
 
         # button to save the dish
         font.setBold(False)
@@ -300,6 +342,7 @@ class DishWindow(QWidget):
         self.backButton.setStyleSheet('background-color: ' + color0 + ';')
         self.backButton.setText('изменить список')
         self.backButton.setFixedSize(140, 30)
+        self.backButton.clicked.connect(self.backButtonClicked)
 
         # button to change the dish
         font.setBold(False)
@@ -309,6 +352,7 @@ class DishWindow(QWidget):
         self.changeButton.setStyleSheet('background-color: ' + color0 + ';')
         self.changeButton.setText('сменить блюдо')
         self.changeButton.setFixedSize(140, 30)
+        self.changeButton.clicked.connect(self.changeButtonClicked)
 
         # table of added products
         self.productTable.setMinimumHeight(400)
@@ -341,6 +385,7 @@ class DishWindow(QWidget):
         self.recipeField.setStyleSheet('background-color: {0};'.format(color3))
         self.recipeField.setAlignment(Qt.AlignTop)
         self.recipeField.setPlaceholderText('Это рецепт. Тут должно быть написано, как готовить выбранное блюдо.')
+        self.recipeField.textChanged.connect(self.recipeChanged)
 
         # label over the recipe
         self.recipeLabel.setMinimumSize(100, 20)
