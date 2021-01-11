@@ -12,6 +12,7 @@ import editwindow
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    controller.save()
     controller.load()
     config.mainFont = 'Century Gothic'
     config.colors[0] = '#9ACD32'
